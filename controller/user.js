@@ -1,19 +1,37 @@
 const UserModel = require('../models/user');
-const asyncHandler = require('express-async-handler');
 const { generateToken } = require('../config/jwtToken');
 
-const createUser = asyncHandler(async (req, res) => {
-    const email = req.body.email;
-    const findUser = await UserModel.findOne({ email });
-    if (!findUser) {
-        const newUser = await UserModel.create(req.body);
-        res.json(newUser);
-    } else {
-        throw new Error('User already exists');
-    }
-})
+exports.createUser = async (req, res, next) => {
+    const { firstName, lastName, email, password, mobile } = req.body;
 
-const loginUser = asyncHandler(async (req, res) => {
+    const userExists = await UserModel.findOne({ email });
+    if (userExists) {
+        return next(new Error('User already exists'));
+    }
+
+    const user = await UserModel.create({
+        firstName,
+        lastName,
+        email,
+        password,
+        mobile
+    });
+
+    if (user) {
+        res.json({
+            _id: user._id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            mobile: user.mobile,
+            token: generateToken(user._id)
+        });
+    } else {
+        next(new Error('Invalid user data'));
+    }
+};
+
+exports.loginUser = async (req, res, next) => {
     const { email, password } = req.body;
 
     const findUser = await UserModel.findOne({ email });
@@ -32,10 +50,4 @@ const loginUser = asyncHandler(async (req, res) => {
     } else {
         throw new Error('Invalid email or password');
     }
-
-})
-
-
-module.exports = { createUser, loginUser };
-
-
+}
