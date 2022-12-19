@@ -1,21 +1,17 @@
-const UserModel = require('../models/user');
 const { generateToken } = require('../config/jwtToken');
+const {
+    createUser,
+    findUser,
+    updateUserById
+} = require('../models/user');
 
-exports.createUser = async (req, res, next) => {
-    const { firstName, lastName, email, password, mobile } = req.body;
-
-    const userExists = await UserModel.findOne({ email });
+exports.createNewUser = async (req, res, next) => {
+    const userExists = await findUser({ email: req.body.email });
     if (userExists) {
         return next(new Error('User already exists'));
     }
 
-    const user = await UserModel.create({
-        firstName,
-        lastName,
-        email,
-        password,
-        mobile
-    });
+    const user = await createUser(req.body);
 
     if (user) {
         res.json({
@@ -33,21 +29,49 @@ exports.createUser = async (req, res, next) => {
 
 exports.loginUser = async (req, res, next) => {
     const { email, password } = req.body;
+    const user = await findUser({ email: email });
 
-    const findUser = await UserModel.findOne({ email });
-    if (findUser && (await findUser.matchPassword(password))) {
-        console.log("findUser", findUser)
+    if (user && await user.matchPassword(password)) {
+        console.log("user & password matched =========");
+
+        const encodedToken = generateToken({
+            _id: user._id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+        });
+
+        const refreshToken = encodedToken;
+        await updateUserById(user._id, { refreshToken });
+        res.cookie('refreshToken', refreshToken, {
+            httpOnly: true,
+            maxAge: 3 * 24 * 60 * 60 * 1000
+        });
+
         res.json({
-            _id: findUser._id,
-            firstName: findUser.firstName,
-            lastName: findUser.lastName,
-            email: findUser.email,
-            mobile: findUser.mobile,
-            token: generateToken(findUser._id)
-        })
-
-
+            _id: user._id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            mobile: user.mobile,
+            refreshToken
+        });
     } else {
-        throw new Error('Invalid email or password');
+        next(new Error('Invalid email or password'));
+    }
+};
+
+exports.getUser = async (req, res, next) => {
+    const user = await findUser({ email: req.body.email });
+    if (user) {
+        res.json({
+            _id: user._id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            mobile: user.mobile,
+        });
+    } else {
+        next(new Error('User not found'));
     }
 }

@@ -11,8 +11,13 @@ const userSchema = new Schema({
     role: {
         type: String,
         default: 'user'
+    },
+    refreshToken: String,
+},
+    {
+        timestamps: true
     }
-});
+);
 
 userSchema.pre('save', async function (next) {
     const salt = await bcrypt.genSalt(10);
@@ -20,10 +25,29 @@ userSchema.pre('save', async function (next) {
     next();
 });
 
-userSchema.methods.matchPassword = async function (enteredPassword) {
-    return await bcrypt.compare(enteredPassword, this.password);
+userSchema.methods.matchPassword = function (enteredPassword) {
+    return bcrypt.compare(enteredPassword, this.password);
 }
 
-module.exports = mongoose.model('User', userSchema);
+const UserModel = mongoose.model('User', userSchema);
+
+exports.createUser = (obj) => {
+    const user = UserModel.create(obj);
+    return user;
+}
+
+exports.findUser = (query) => {
+    const user = UserModel.findOne(query);
+    return user;
+}
+
+exports.updateUserById = (_id, obj) => {
+    const user = UserModel.findByIdAndUpdate(_id, obj, {
+        new: true,
+    });
+    return user;
+}
+
+
 
 
