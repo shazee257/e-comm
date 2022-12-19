@@ -75,3 +75,56 @@ exports.getUser = async (req, res, next) => {
         next(new Error('User not found'));
     }
 }
+
+exports.logout = async (req, res, next) => {
+    const cookie = req.cookies;
+    if (!cookie?.refreshToken) {
+        return res.sendStatus(204); // No content
+    }
+    const refreshToken = cookie.refreshToken;
+    const user = await findUser({ refreshToken });
+    if (!user) {
+        res.clearCookie('refreshToken', {
+            httpOnly: true,
+            secure: true,
+        });
+        return res.sendStatus(204); // No content
+    }
+    await updateUserById(user._id, { refreshToken: null });
+}
+
+exports.handleRefreshToken = async (req, res, next) => {
+    const cookie = req.cookies;
+    if (!cookie?.refreshToken) {
+        return res.sendStatus(401); // Unauthorized
+    }
+    const refreshToken = cookie.refreshToken;
+    const user = await findUser({ refreshToken });
+    if (!user) {
+        res.clearCookie('refreshToken', {
+            httpOnly: true,
+            secure: true,
+        });
+        return next(new Error('No refresh token found in DB / not matched'));
+    }
+    const encodedToken = generateToken({
+        _id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+    });
+    const newRefreshToken = encodedToken;
+    await updateUserById(user._id, { refreshToken: newRefreshToken });
+    res.cookie('refreshToken', newRefreshToken, {
+        httpOnly: true,
+        maxAge: 3 * 24 * 60 * 60 * 1000
+    });
+    res.json({
+        _id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        mobile: user.mobile,
+        refreshToken: newRefreshToken
+    });
+}

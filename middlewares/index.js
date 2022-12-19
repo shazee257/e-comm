@@ -17,7 +17,8 @@ exports.errorHandler = (err, req, res, next) => {
 
 exports.isAuth = async (req, res, next) => {
     // get token from cookie
-    const token = req.cookies.refreshToken;
+    const cookie = req.cookies;
+    const token = cookie?.token;
     if (token) {
         const decoded = verify(token, process.env.JWT_SECRET);
         req.user = { ...decoded };
