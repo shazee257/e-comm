@@ -1,4 +1,4 @@
-const { generateToken } = require('../config/jwtToken');
+const { generateToken } = require('../utils');
 const {
     createUser,
     findUser,
@@ -20,7 +20,6 @@ exports.createNewUser = async (req, res, next) => {
             lastName: user.lastName,
             email: user.email,
             mobile: user.mobile,
-            token: generateToken(user._id)
         });
     } else {
         next(new Error('Invalid user data'));
@@ -32,8 +31,6 @@ exports.loginUser = async (req, res, next) => {
     const user = await findUser({ email: email });
 
     if (user && await user.matchPassword(password)) {
-        console.log("user & password matched =========");
-
         const encodedToken = generateToken({
             _id: user._id,
             firstName: user.firstName,
@@ -41,11 +38,11 @@ exports.loginUser = async (req, res, next) => {
             email: user.email,
         });
 
-        const refreshToken = encodedToken;
-        await updateUserById(user._id, { refreshToken });
-        res.cookie('refreshToken', refreshToken, {
+        const token = encodedToken;
+        await updateUserById(user._id, { token });
+        res.cookie('token', token, {
             httpOnly: true,
-            maxAge: 3 * 24 * 60 * 60 * 1000
+            maxAge: process.env.COOKIE_TOKEN_EXPIRATION
         });
 
         res.json({
@@ -54,7 +51,7 @@ exports.loginUser = async (req, res, next) => {
             lastName: user.lastName,
             email: user.email,
             mobile: user.mobile,
-            refreshToken
+            token
         });
     } else {
         next(new Error('Invalid email or password'));
@@ -77,54 +74,25 @@ exports.getUser = async (req, res, next) => {
 }
 
 exports.logout = async (req, res, next) => {
+    // if token not found in cookie
     const cookie = req.cookies;
-    if (!cookie?.refreshToken) {
+    if (!cookie?.token) {
         return res.sendStatus(204); // No content
     }
-    const refreshToken = cookie.refreshToken;
-    const user = await findUser({ refreshToken });
-    if (!user) {
-        res.clearCookie('refreshToken', {
-            httpOnly: true,
-            secure: true,
-        });
-        return res.sendStatus(204); // No content
+
+    // find user By token in DB
+    const token = cookie.token;
+    const user = await findUser({ token });
+
+    // User is not found in DB
+    if (user) {
+        await updateUserById(user._id, { token: null });
     }
-    await updateUserById(user._id, { refreshToken: null });
+
+    res.clearCookie('token', {
+        httpOnly: true,
+        secure: true,
+    });
+    return res.sendStatus(204); // No content
 }
 
-exports.handleRefreshToken = async (req, res, next) => {
-    const cookie = req.cookies;
-    if (!cookie?.refreshToken) {
-        return res.sendStatus(401); // Unauthorized
-    }
-    const refreshToken = cookie.refreshToken;
-    const user = await findUser({ refreshToken });
-    if (!user) {
-        res.clearCookie('refreshToken', {
-            httpOnly: true,
-            secure: true,
-        });
-        return next(new Error('No refresh token found in DB / not matched'));
-    }
-    const encodedToken = generateToken({
-        _id: user._id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-    });
-    const newRefreshToken = encodedToken;
-    await updateUserById(user._id, { refreshToken: newRefreshToken });
-    res.cookie('refreshToken', newRefreshToken, {
-        httpOnly: true,
-        maxAge: 3 * 24 * 60 * 60 * 1000
-    });
-    res.json({
-        _id: user._id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        mobile: user.mobile,
-        refreshToken: newRefreshToken
-    });
-}

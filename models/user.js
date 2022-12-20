@@ -12,7 +12,7 @@ const userSchema = new Schema({
         type: String,
         default: 'user'
     },
-    refreshToken: String,
+    token: String,
 },
     {
         timestamps: true
