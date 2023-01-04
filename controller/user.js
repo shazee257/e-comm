@@ -1,4 +1,7 @@
-const { generateToken } = require('../utils');
+const {
+    generateToken,
+    generateResponse
+} = require('../utils');
 const {
     createUser,
     findUser,
@@ -14,13 +17,7 @@ exports.createNewUser = async (req, res, next) => {
     const user = await createUser(req.body);
 
     if (user) {
-        res.json({
-            _id: user._id,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            email: user.email,
-            mobile: user.mobile,
-        });
+        generateResponse(user, 'User created successfully', res);
     } else {
         next(new Error('Invalid user data'));
     }
@@ -39,20 +36,14 @@ exports.loginUser = async (req, res, next) => {
         });
 
         const token = encodedToken;
-        await updateUserById(user._id, { token });
+        // update user token in DB
+        const updatedUser = await updateUserById(user._id, { token });
         res.cookie('token', token, {
             httpOnly: true,
-            maxAge: process.env.COOKIE_TOKEN_EXPIRATION
+            maxAge: process.env.COOKIE_TOKEN_EXPIRATION // 10 minutes in .env
         });
 
-        res.json({
-            _id: user._id,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            email: user.email,
-            mobile: user.mobile,
-            token
-        });
+        generateResponse(updatedUser, 'Login successful', res);
     } else {
         next(new Error('Invalid email or password'));
     }
@@ -61,13 +52,7 @@ exports.loginUser = async (req, res, next) => {
 exports.getUser = async (req, res, next) => {
     const user = await findUser({ email: req.body.email });
     if (user) {
-        res.json({
-            _id: user._id,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            email: user.email,
-            mobile: user.mobile,
-        });
+        generateResponse(user, 'User found', res);
     } else {
         next(new Error('User not found'));
     }
@@ -96,3 +81,11 @@ exports.logout = async (req, res, next) => {
     return res.sendStatus(204); // No content
 }
 
+exports.updateUserById = async (req, res, next) => {
+    const user = await updateUserById(req.params.id, req.body);
+    if (user) {
+        generateResponse(user, 'User updated successfully', res);
+    } else {
+        next(new Error('User not found'));
+    }
+}

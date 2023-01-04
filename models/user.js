@@ -14,14 +14,23 @@ const userSchema = new Schema({
     },
     token: String,
 },
-    {
-        timestamps: true
-    }
+    { timestamps: true }
 );
 
 userSchema.pre('save', async function (next) {
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
+    if (!this.isModified('password')) {
+        next();
+    }
+    this.password = await bcrypt.hash(this.password, 10);
+    next();
+});
+
+userSchema.pre('findOneAndUpdate', async function (next) {
+    if (!this._update.password) {
+        next();
+    }
+
+    this._update.password = await bcrypt.hash(this._update.password, 10);
     next();
 });
 
@@ -31,20 +40,23 @@ userSchema.methods.matchPassword = function (enteredPassword) {
 
 const UserModel = mongoose.model('User', userSchema);
 
+
+
+// create new user
 exports.createUser = (obj) => {
     const user = UserModel.create(obj);
     return user;
 }
 
+// find user
 exports.findUser = (query) => {
     const user = UserModel.findOne(query);
     return user;
 }
 
+// update user
 exports.updateUserById = (_id, obj) => {
-    const user = UserModel.findByIdAndUpdate(_id, obj, {
-        new: true,
-    });
+    const user = UserModel.findByIdAndUpdate(_id, obj, { new: true });
     return user;
 }
 

@@ -31,7 +31,7 @@ exports.isAuth = async (req, res, next) => {
             const tokenIssuedTime = decoded.iat * 1000;
             const nowTime = new Date().getTime();
             const tokenAge = nowTime - tokenIssuedTime;
-            console.log("previous req hit since: (ms) ", tokenAge);
+            console.log("last req. hit since: (ms) ", tokenAge);
 
             if (tokenAge > process.env.COOKIE_TOKEN_EXPIRATION) {
                 next(new Error('Token is expired'));
