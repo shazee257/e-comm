@@ -7,8 +7,17 @@ const {
     findUser,
     updateUserById
 } = require('../models/user');
+const userValidation = require('../validation/userValidation');
 
 exports.createNewUser = async (req, res, next) => {
+    const { firstName, lastName, mobile, role, email, password } = req.body;
+
+    // Joi validation
+    const { error } = userValidation.validate({ firstName, lastName, mobile, role, email, password });
+    if (error) {
+        return next(new Error(error.details[0].message));
+    }
+
     const userExists = await findUser({ email: req.body.email });
     if (userExists) {
         return next(new Error('User already exists'));
@@ -25,6 +34,13 @@ exports.createNewUser = async (req, res, next) => {
 
 exports.loginUser = async (req, res, next) => {
     const { email, password } = req.body;
+
+    // Joi validation
+    const { error } = userValidation.validate({ email, password });
+    if (error) {
+        return next(new Error(error.details[0].message));
+    }
+
     const user = await findUser({ email: email });
 
     if (user && await user.matchPassword(password)) {
@@ -50,6 +66,14 @@ exports.loginUser = async (req, res, next) => {
 };
 
 exports.getUser = async (req, res, next) => {
+    const { email } = req.body;
+
+    // Joi validation
+    const { error } = userValidation.validate({ email });
+    if (error) {
+        return next(new Error(error.details[0].message));
+    }
+
     const user = await findUser({ email: req.body.email });
     if (user) {
         generateResponse(user, 'User found', res);
